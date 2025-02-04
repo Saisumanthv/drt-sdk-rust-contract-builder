@@ -1,0 +1,40 @@
+name: Tests
+
+on:
+  workflow_dispatch:
+  pull_request:
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build image
+        run: |
+          docker buildx build --output type=docker --no-cache . -t sdk-rust-contract-builder:next -f ./Dockerfile
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest
+
+      - name: Run tests
+        run: |
+          export PYTHONPATH=.
+          pytest .
+          python ./integration_tests/test_project_folder_and_packaged_src_are_equivalent.py
+          python ./integration_tests/test_previous_builds_are_reproducible.py --selected-builds "a.1" "a.2" "a.3"
+
+      - name: Save artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: testdata_output
+          path: |
+            ./testdata/output/**/*.*
+          if-no-files-found: error
